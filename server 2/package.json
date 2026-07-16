@@ -1,0 +1,16 @@
+{
+  "name": "troll-chess-academy-server",
+  "version": "0.2.0",
+  "description": "惡搞棋院 — 帳號 / 進度 / 線上對戰伺服器 + 後台管理控制台",
+  "main": "server.js",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "cors": "^2.8.5",
+    "google-auth-library": "^9.11.0"
+  }
+}

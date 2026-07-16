@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>惡搞棋院 — 後台管理控制台</title>
+<style>
+  :root{ --bg:#151515; --panel:#1e1e1e; --line:#333; --gold:#c9962b; --txt:#eee; --dim:#999; --danger:#c04040; --ok:#4a9d5f; }
+  *{ box-sizing:border-box; }
+  body{ background:var(--bg); color:var(--txt); font-family:-apple-system,Segoe UI,sans-serif; margin:0; padding:24px; }
+  h1{ font-size:20px; margin:0 0 4px; }
+  .sub{ color:var(--dim); font-size:13px; margin-bottom:20px; }
+  #loginBox{ max-width:320px; margin:80px auto; background:var(--panel); padding:24px; border-radius:8px; border:1px solid var(--line); }
+  #loginBox input{ width:100%; padding:10px; margin:8px 0; background:#111; border:1px solid var(--line); color:var(--txt); border-radius:4px; }
+  #loginBox button{ width:100%; padding:10px; background:var(--gold); border:none; border-radius:4px; font-weight:700; cursor:pointer; }
+  #app{ display:none; max-width:1200px; margin:0 auto; }
+  .tabs{ display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .tab{ padding:8px 16px; background:var(--panel); border:1px solid var(--line); border-radius:6px; cursor:pointer; font-size:13px; }
+  .tab.active{ background:var(--gold); color:#111; font-weight:700; border-color:var(--gold); }
+  .panel{ display:none; } .panel.active{ display:block; }
+  .stats-row{ display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  .stat-card{ background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 18px; min-width:118px; }
+  .stat-card .num{ font-size:22px; font-weight:700; color:var(--gold); }
+  .stat-card .lbl{ font-size:12px; color:var(--dim); }
+  table{ width:100%; border-collapse:collapse; background:var(--panel); border-radius:8px; overflow:hidden; }
+  th,td{ text-align:left; padding:10px 12px; font-size:13px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  th{ color:var(--dim); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  tr:hover{ background:#252525; }
+  .btn{ background:#2a2a2a; border:1px solid var(--line); color:var(--txt); padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px; margin-right:4px; }
+  .btn.danger{ border-color:var(--danger); color:var(--danger); }
+  .btn.gold{ border-color:var(--gold); color:var(--gold); }
+  .banned{ color:var(--danger); font-weight:700; }
+  .newtag{ background:var(--ok); color:#fff; font-size:10px; padding:1px 6px; border-radius:999px; margin-left:6px; }
+  .refresh{ float:right; }
+  code{ background:#111; padding:2px 6px; border-radius:3px; font-size:11px; }
+  .who{ display:flex; align-items:center; gap:8px; }
+  .who img{ width:26px; height:26px; border-radius:50%; }
+  .modal{ position:fixed; inset:0; background:rgba(0,0,0,.75); display:none; align-items:center; justify-content:center; padding:24px; z-index:20; }
+  .modal-card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:22px; max-width:640px; width:100%; max-height:82vh; overflow:auto; }
+  .modal-card h2{ margin:0 0 12px; font-size:17px; }
+  .kv{ display:grid; grid-template-columns:120px 1fr; gap:6px 12px; font-size:13px; margin-bottom:16px; }
+  .kv .k{ color:var(--dim); }
+  .close{ float:right; cursor:pointer; color:var(--dim); }
+</style>
+</head>
+<body>
+
+<div id="loginBox">
+  <h1>🛠 後台登入</h1>
+  <div class="sub">輸入伺服器的 ADMIN_PASSWORD</div>
+  <input type="password" id="pwInput" placeholder="密碼" onkeydown="if(event.key==='Enter')login()">
+  <button onclick="login()">登入</button>
+  <div id="loginErr" style="color:var(--danger); font-size:12px; margin-top:8px;"></div>
+</div>
+
+<div id="app">
+  <h1>🛠 惡搞棋院 — 後台控制台</h1>
+  <div class="sub">帳號、登入紀錄、遊戲進度管理</div>
+
+  <div class="stats-row" id="statsRow"></div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="accounts" onclick="switchTab('accounts')">帳號</div>
+    <div class="tab" data-tab="logins" onclick="switchTab('logins')">登入紀錄</div>
+    <div class="tab" data-tab="games" onclick="switchTab('games')">對局紀錄</div>
+  </div>
+
+  <div class="panel active" id="panel-accounts">
+    <button class="btn refresh" onclick="loadAccounts()">↻ 重新整理</button>
+    <table>
+      <thead><tr><th>玩家</th><th>Email</th><th>🪙 金幣</th><th>💰 元寶</th><th>勝/敗/和</th><th>登入次數</th><th>最後登入</th><th>狀態</th><th>操作</th></tr></thead>
+      <tbody id="accountsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="panel" id="panel-logins">
+    <button class="btn refresh" onclick="loadLogins()">↻ 重新整理</button>
+    <table>
+      <thead><tr><th>時間</th><th>玩家</th><th>Email</th><th>方式</th><th>IP</th><th>裝置</th></tr></thead>
+      <tbody id="loginsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="panel" id="panel-games">
+    <button class="btn refresh" onclick="loadGames()">↻ 重新整理</button>
+    <table>
+      <thead><tr><th>模式</th><th>類型</th><th>狀態</th><th>結果</th><th>步數</th><th>開始時間</th></tr></thead>
+      <tbody id="gamesBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal" id="detailModal" onclick="if(event.target===this)closeDetail()">
+  <div class="modal-card">
+    <span class="close" onclick="closeDetail()">✕</span>
+    <h2 id="detailTitle">玩家詳情</h2>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<script>
+let ADMIN_PW = '';
+
+function api(path, opts){
+  opts = opts || {};
+  opts.headers = Object.assign({'Content-Type':'application/json','x-admin-password':ADMIN_PW}, opts.headers||{});
+  return fetch(path, opts).then(r=>{
+    if(r.status===401) throw new Error('unauthorized');
+    return r.json();
+  });
+}
+
+function login(){
+  const pw = document.getElementById('pwInput').value;
+  fetch('/api/admin/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password:pw}) })
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.ok){
+        ADMIN_PW = pw;
+        document.getElementById('loginBox').style.display='none';
+        document.getElementById('app').style.display='block';
+        loadStats(); loadAccounts(); loadLogins(); loadGames();
+      } else document.getElementById('loginErr').textContent = '密碼錯誤';
+    })
+    .catch(()=>{ document.getElementById('loginErr').textContent = '連線失敗'; });
+}
+
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='panel-'+name));
+}
+
+function fmtTime(ts){ if(!ts) return '—'; return new Date(ts).toLocaleString('zh-TW',{hour12:false}); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function shortUA(ua){
+  if(!ua) return '—';
+  const m = ua.match(/(Chrome|Firefox|Safari|Edg|OPR)\/[\d.]+/);
+  const mob = /Mobile|Android|iPhone|iPad/.test(ua) ? '📱' : '💻';
+  return mob + ' ' + (m ? m[0].split('/')[0] : ua.slice(0,18));
+}
+
+function loadStats(){
+  api('/api/admin/stats').then(d=>{
+    document.getElementById('statsRow').innerHTML = `
+      <div class="stat-card"><div class="num">${d.totalAccounts}</div><div class="lbl">總帳號數</div></div>
+      <div class="stat-card"><div class="num">${d.loginsLast24h}</div><div class="lbl">24 小時登入</div></div>
+      <div class="stat-card"><div class="num">${d.activeSessions}</div><div class="lbl">有效工作階段</div></div>
+      <div class="stat-card"><div class="num">${d.onlineSockets}</div><div class="lbl">目前連線</div></div>
+      <div class="stat-card"><div class="num">${d.bannedAccounts}</div><div class="lbl">已封鎖</div></div>
+      <div class="stat-card"><div class="num">${d.totalGames}</div><div class="lbl">總對局數</div></div>
+    `;
+  }).catch(()=>{});
+}
+
+function loadAccounts(){
+  api('/api/admin/accounts').then(d=>{
+    document.getElementById('accountsBody').innerHTML = d.accounts.map(a=>{
+      const p = a.progress || {};
+      const pic = a.picture ? `<img src="${esc(a.picture)}" referrerpolicy="no-referrer">` : '';
+      return `<tr>
+        <td><div class="who">${pic}<span>${esc(a.name)}</span></div></td>
+        <td><code>${esc(a.email)}</code></td>
+        <td>🪙 ${p.coins||0}</td>
+        <td>💰 ${p.ingots||0}</td>
+        <td>${a.wins||0}/${a.losses||0}/${a.draws||0}</td>
+        <td>${a.loginCount||0}</td>
+        <td>${fmtTime(a.lastLoginAt)}</td>
+        <td>${a.banned ? '<span class="banned">已封鎖</span>' : '正常'}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn" onclick="showDetail('${a.id}')">詳情</button>
+          <button class="btn gold" onclick="cur('${a.id}','coins',50)">+50🪙</button>
+          <button class="btn gold" onclick="cur('${a.id}','ingots',50)">+50💰</button>
+          <button class="btn ${a.banned?'':'danger'}" onclick="ban('${a.id}',${!a.banned})">${a.banned?'解封':'封鎖'}</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }).catch(()=>{});
+}
+
+function cur(id, field, delta){
+  api(`/api/admin/accounts/${id}/currency`, { method:'POST', body:JSON.stringify({field, delta}) })
+    .then(()=>{ loadAccounts(); });
+}
+function ban(id, banned){
+  api(`/api/admin/accounts/${id}/ban`, { method:'POST', body:JSON.stringify({banned}) })
+    .then(()=>{ loadAccounts(); loadStats(); });
+}
+function kick(id){
+  api(`/api/admin/accounts/${id}/kick`, { method:'POST' }).then(()=>{ loadStats(); showDetail(id); });
+}
+
+function showDetail(id){
+  api('/api/admin/accounts/'+id).then(d=>{
+    const a = d.account, p = a.progress || {};
+    document.getElementById('detailTitle').textContent = a.name;
+    document.getElementById('detailBody').innerHTML = `
+      <div class="kv">
+        <div class="k">帳號 ID</div><div><code>${esc(a.id)}</code></div>
+        <div class="k">Google sub</div><div><code>${esc(a.googleSub)}</code></div>
+        <div class="k">Email</div><div>${esc(a.email)}</div>
+        <div class="k">註冊時間</div><div>${fmtTime(a.createdAt)}</div>
+        <div class="k">最後登入</div><div>${fmtTime(a.lastLoginAt)}</div>
+        <div class="k">登入次數</div><div>${a.loginCount||0}</div>
+        <div class="k">金幣 / 元寶</div><div>🪙 ${p.coins||0} ／ 💰 ${p.ingots||0}</div>
+        <div class="k">西洋棋技能</div><div>${(p.owned||[]).join(', ')||'—'}</div>
+        <div class="k">象棋技能</div><div>${(p.xqOwned||[]).join(', ')||'—'}</div>
+        <div class="k">有效工作階段</div><div>${d.sessions.length} <button class="btn danger" onclick="kick('${a.id}')">全部登出</button></div>
+      </div>
+      <h2>最近登入紀錄</h2>
+      <table><thead><tr><th>時間</th><th>IP</th><th>裝置</th></tr></thead><tbody>
+        ${d.logins.map(l=>`<tr><td>${fmtTime(l.at)}${l.isNew?'<span class="newtag">首次註冊</span>':''}</td><td><code>${esc(l.ip)}</code></td><td>${esc(shortUA(l.userAgent))}</td></tr>`).join('') || '<tr><td colspan="3">—</td></tr>'}
+      </tbody></table>
+    `;
+    document.getElementById('detailModal').style.display='flex';
+  });
+}
+function closeDetail(){ document.getElementById('detailModal').style.display='none'; }
+
+function loadLogins(){
+  api('/api/admin/logins?limit=200').then(d=>{
+    document.getElementById('loginsBody').innerHTML = d.logins.map(l=>`
+      <tr>
+        <td>${fmtTime(l.at)}${l.isNew?'<span class="newtag">首次註冊</span>':''}</td>
+        <td>${esc(l.accountName)}</td>
+        <td><code>${esc(l.accountEmail)}</code></td>
+        <td>${esc(l.method)}</td>
+        <td><code>${esc(l.ip)}</code></td>
+        <td>${esc(shortUA(l.userAgent))}</td>
+      </tr>`).join('') || '<tr><td colspan="6">還沒有登入紀錄</td></tr>';
+  }).catch(()=>{});
+}
+
+function loadGames(){
+  api('/api/admin/games?limit=100').then(d=>{
+    document.getElementById('gamesBody').innerHTML = d.games.map(g=>`
+      <tr>
+        <td>${esc(g.family)} / ${esc(g.variant)}</td>
+        <td>${esc(g.type)}</td>
+        <td>${esc(g.status)}</td>
+        <td>${g.winner ? esc(JSON.stringify(g.winner)) : '—'}</td>
+        <td>${g.moveCount||0}</td>
+        <td>${fmtTime(g.startedAt)}</td>
+      </tr>`).join('') || '<tr><td colspan="6">還沒有對局紀錄</td></tr>';
+  }).catch(()=>{});
+}
+
+setInterval(()=>{ if(ADMIN_PW) loadStats(); }, 8000);
+</script>
+</body>
+</html>
